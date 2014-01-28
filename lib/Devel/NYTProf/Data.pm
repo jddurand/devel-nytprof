@@ -49,7 +49,6 @@ use strict;
 use Carp qw(carp croak cluck);
 use Cwd qw(getcwd);
 use Scalar::Util qw(blessed);
-
 use Devel::NYTProf::Core;
 use Devel::NYTProf::FileInfo;
 use Devel::NYTProf::SubInfo;
@@ -57,6 +56,7 @@ use Devel::NYTProf::Util qw(
     make_path_strip_editor strip_prefix_from_paths get_abs_paths_alternation_regex
     trace_level
 );
+use Class::Runtime;
 
 our $VERSION = '4.02';
 
@@ -68,6 +68,7 @@ our $VERSION = '4.02';
   $profile = Devel::NYTProf::Data->new( {
     filename => 'nytprof.out', # default
     quiet    => 0,             # default, 1 to silence message
+    plugin   => 'Devel::NYTProf::Data::Plugin::Default',     # default
   } );
 
 Reads the specified file containing profile data written by L<Devel::NYTProf>,
@@ -81,10 +82,26 @@ sub new {
     my $args = shift || { };
 
     my $file = $args->{filename} ||= 'nytprof.out';
+    my $plugin = $args->{plugin} ||= 'Devel::NYTProf::Data::Plugin::Default';
+
+    #
+    # Load the plugin
+    #
+    my $cl = Class::Runtime->new(class => $plugin);
+    $cl->load unless $cl->isLoaded();
+    if (! $cl->isLoaded()) {
+      croak "Error in loading $plugin, $@";
+    }
+    #
+    # We do not use UNIVERSAL->DOES or whatever. If the plugin cannot do
+    # new() not load_profile_data_from_file() method, this will croak by itself
+    # and that is ok
+    #
+    my $pluginObj = $cl->invoke('new');
 
     print "Reading $file\n" unless $args->{quiet};
 
-    my $profile = load_profile_data_from_file(
+    my $profile = $cl->invoke('load_profile_data_from_file',
         $file,
         $args->{callback},
     );

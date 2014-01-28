@@ -92,6 +92,7 @@ GetOptions(
     'mergeevals!'=> \(my $opt_mergeevals = 1),
     'profself!'     => sub { }, # handled in BEGIN above
     'debug!'        => \my $opt_debug,
+    'callgrind!'    => \my $opt_callgrind,
 ) or do { exit usage(); };
 
 
@@ -108,6 +109,7 @@ usage: [perl] nytprofhtml [opts]
  --no-flame                Disable flame graph (and call stacks processing)
  --minimal,     -m         Don't generate graphviz .dot files or block/sub-level reports
  --no-mergeevals           Disable merging of string evals
+ --callgrind               Read callgrind profile data
  --help,        -h         Print this message
 
 This script of part of the Devel::NYTProf distribution.
@@ -144,8 +146,10 @@ if (defined($opt_lib)) {
 
 $SIG{USR2} = \&Carp::cluck;
 
+my $plugin = $opt_callgrind ? 'Devel::NYTProf::Data::Plugin::Callgrind' : '';
 my $reporter = new Devel::NYTProf::Reader($opt_file, {
     quiet => 0,
+    plugin => $plugin,
     skip_collapse_evals => !$opt_mergeevals,
 });
 
